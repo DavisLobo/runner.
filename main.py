@@ -17,7 +17,27 @@ WINDOW_WIDTH, WINDOW_HEIGHT = SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE
 
 display = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
 window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-game_icon = pygame.image.load("runner.png")
+
+# Criação do ícone dinâmico caso a imagem não exista
+def generate_default_icon():
+    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+    icon.fill((15, 20, 15))
+    grid_color = (30, 45, 30)
+    for i in range(0, 32, 4):
+        pygame.draw.line(icon, grid_color, (i, 0), (i, 32), 1)
+        pygame.draw.line(icon, grid_color, (0, i), (32, i), 1)
+    pygame.draw.rect(icon, (80, 100, 80), (0, 0, 32, 32), 1)
+    pygame.draw.rect(icon, (210, 230, 210), (1, 1, 30, 30), 1)
+    pygame.draw.rect(icon, (210, 230, 210), (9, 9, 14, 14))
+    pygame.draw.rect(icon, (15, 20, 15), (15, 13, 2, 3))
+    pygame.draw.rect(icon, (15, 20, 15), (19, 13, 2, 3))
+    return icon
+
+if os.path.exists("runner.png"):
+    game_icon = pygame.image.load("runner.png")
+else:
+    game_icon = generate_default_icon()
+
 pygame.display.set_icon(game_icon)
 pygame.display.set_caption("runner.")
 
@@ -82,9 +102,6 @@ sound_damage = generate_sound("sawtooth", start_freq=120, end_freq=30, duration=
 sound_win = generate_sound("square", start_freq=440, end_freq=880, duration=0.35, max_amp=4000)
 
 # Menu Sounds
-# 1. Selection (Navigation): Opaque, short, and discreet (low sine wave)
-# 2. Choice (Confirm): Upbeat, bright, and ascending (fast upward square wave)
-# 3. Back (Cancel): Subdued and descending (falling low sawtooth wave)
 sound_menu_move = generate_sound("sine", start_freq=220, end_freq=200, duration=0.04, max_amp=2500)
 sound_menu_select = generate_sound("square", start_freq=350, end_freq=700, duration=0.10, max_amp=4000)
 sound_menu_back = generate_sound("sawtooth", start_freq=240, end_freq=110, duration=0.12, max_amp=3500)
@@ -140,6 +157,7 @@ def update_music_volume(settings):
     if music_channel:
         music_channel.set_volume(settings["music_volume"] / 100.0)
 
+# --- GERENCIAMENTO DE DADOS E RANKING ---
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
@@ -156,13 +174,33 @@ def save_data(data):
     except Exception as e:
         print(f"Error saving data.json: {e}")
 
-def load_best_time():
+def load_best_times():
     data = load_data()
-    return data.get("best_time", None)
+    times = data.get("best_times", [])
+    if not isinstance(times, list):
+        if "best_time" in data and data["best_time"] is not None:
+            times = [data["best_time"]]
+        else:
+            times = []
+    return sorted(times)
 
-def save_best_time(new_best_time):
+def save_new_time(new_time):
+    times = load_best_times()
+    times.append(round(new_time, 3))
+    times = sorted(times)[:5]
+    
     data = load_data()
-    data["best_time"] = round(new_best_time, 3)
+    data["best_times"] = times
+    if "best_time" in data:
+        del data["best_time"]
+    save_data(data)
+    return times
+
+def reset_all_times():
+    data = load_data()
+    data["best_times"] = []
+    if "best_time" in data:
+        del data["best_time"]
     save_data(data)
 
 def format_time(seconds):
@@ -317,7 +355,7 @@ LEVEL_MAP = [
     "...........................................................F",
     "....................................................PPPPPPPP",
     ".......................................PPPP.PPPP............",
-    "............................PPPPP...........................",
+    "............................PPPPP...................",
     "...................PPPP.....................................",
     "...............PP...........................................",
     "........PPPP................................................",
@@ -417,7 +455,7 @@ def show_credits(surface):
         clock.tick(FPS)
 
 
-# --- MODAL DE TUTORIAL (EM INGLÊS) ---
+# --- MODAL DE TUTORIAL ---
 def show_tutorial_modal(surface, settings, frame_count):
     waiting = True
     while waiting:
@@ -478,16 +516,67 @@ def show_tutorial_modal(surface, settings, frame_count):
     return True
 
 
+# --- TELA DE RANKING ---
+def run_ranking_menu(surface, settings):
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                show_credits(surface)
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+                    play_sfx(sound_menu_back, settings["sfx_volume"])
+                    return
+
+        surface.fill(COLOR_BG)
+
+        t_title = font_large.render("TOP 5 TIMES", True, COLOR_WHITE)
+        surface.blit(t_title, (SCREEN_WIDTH // 2 - t_title.get_width() // 2, 12))
+
+        best_times = load_best_times()
+
+        if not best_times:
+            no_times_txt = font.render("No records registered yet!", True, COLOR_MID)
+            surface.blit(no_times_txt, (SCREEN_WIDTH // 2 - no_times_txt.get_width() // 2, 85))
+        else:
+            for i in range(5):
+                rank_str = f"#{i+1}"
+                time_str = format_time(best_times[i]) if i < len(best_times) else "--:--.---"
+                color = COLOR_WHITE if i == 0 else (COLOR_FG if i < len(best_times) else COLOR_DARK)
+
+                txt_rank = font.render(rank_str, True, color)
+                txt_time = font.render(time_str, True, color)
+
+                y_pos = 45 + i * 20
+                surface.blit(txt_rank, (70, y_pos))
+                surface.blit(txt_time, (SCREEN_WIDTH - txt_time.get_width() - 70, y_pos))
+
+        back_txt = font_small.render("Press ESC or ENTER to Back", True, COLOR_MID)
+        surface.blit(back_txt, (SCREEN_WIDTH // 2 - back_txt.get_width() // 2, 160))
+
+        surface.blit(scanlines, (0, 0))
+        scaled = pygame.transform.scale(surface, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        window.blit(scaled, (0, 0))
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 # --- TELA DE OPÇÕES (OPTIONS) ---
 def run_options_menu(surface, settings):
-    options = ["SFX Volume", "Music Volume", "Jump Key", "Left Key", "Right Key", "Run Key", "BACK"]
+    options = ["SFX Volume", "Music Volume", "Jump Key", "Left Key", "Right Key", "Run Key", "RESET TIMES", "BACK"]
     selected = 0
     remapping_idx = None
+    status_msg = ""
+    status_timer = 0
 
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return
+                show_credits(surface)
+                pygame.quit()
+                sys.exit()
 
             if remapping_idx is not None:
                 if event.type == pygame.KEYDOWN:
@@ -524,9 +613,14 @@ def run_options_menu(surface, settings):
                         play_sfx(sound_menu_move, settings["sfx_volume"])
 
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    if selected == 6:  # BACK
+                    if selected == 7:  # BACK
                         play_sfx(sound_menu_back, settings["sfx_volume"])
                         return
+                    elif selected == 6:  # RESET TIMES
+                        reset_all_times()
+                        play_sfx(sound_damage, settings["sfx_volume"])
+                        status_msg = "TIMES CLEARED!"
+                        status_timer = 90
                     elif 2 <= selected <= 5:
                         play_sfx(sound_menu_select, settings["sfx_volume"])
                         remapping_idx = selected
@@ -538,7 +632,7 @@ def run_options_menu(surface, settings):
         surface.fill(COLOR_BG)
 
         t_title = font_large.render("OPTIONS", True, COLOR_WHITE)
-        surface.blit(t_title, (SCREEN_WIDTH // 2 - t_title.get_width() // 2, 12))
+        surface.blit(t_title, (SCREEN_WIDTH // 2 - t_title.get_width() // 2, 8))
 
         key_names = [
             f"< {settings['sfx_volume']}% >",
@@ -547,6 +641,7 @@ def run_options_menu(surface, settings):
             pygame.key.name(settings["key_left"]).upper(),
             pygame.key.name(settings["key_right"]).upper(),
             pygame.key.name(settings["key_run"]).upper(),
+            "",
             ""
         ]
 
@@ -555,7 +650,7 @@ def run_options_menu(surface, settings):
             prefix = "> " if i == selected else "  "
             
             if remapping_idx == i:
-                val_str = "PRESS ANY KEY..."
+                val_str = "PRESS KEY..."
             else:
                 val_str = key_names[i]
 
@@ -563,10 +658,15 @@ def run_options_menu(surface, settings):
             txt_lbl = font.render(label, True, color)
             txt_val = font.render(val_str, True, COLOR_FG if i == selected else COLOR_MID)
 
-            y_pos = 42 + i * 18
-            surface.blit(txt_lbl, (25, y_pos))
+            y_pos = 32 + i * 16
+            surface.blit(txt_lbl, (20, y_pos))
             if val_str:
-                surface.blit(txt_val, (SCREEN_WIDTH - txt_val.get_width() - 25, y_pos))
+                surface.blit(txt_val, (SCREEN_WIDTH - txt_val.get_width() - 20, y_pos))
+
+        if status_timer > 0:
+            status_timer -= 1
+            msg_txt = font_small.render(status_msg, True, COLOR_WHITE)
+            surface.blit(msg_txt, (SCREEN_WIDTH // 2 - msg_txt.get_width() // 2, 164))
 
         surface.blit(scanlines, (0, 0))
         scaled = pygame.transform.scale(surface, (WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -578,7 +678,7 @@ def run_options_menu(surface, settings):
 # --- MAIN LOOP AND INITIAL MENU ---
 def main():
     frame_count = 0
-    menu_options = ["PLAY", "OPTIONS", "QUIT"]
+    menu_options = ["PLAY", "RANKING", "OPTIONS", "QUIT"]
     selected_option = 0
 
     update_music_volume(current_settings)
@@ -606,11 +706,15 @@ def main():
                         if show_tutorial_modal(display, current_settings, frame_count):
                             run_game(current_settings)
 
-                    elif selected_option == 1:  # OPTIONS
+                    elif selected_option == 1:  # RANKING
+                        play_sfx(sound_menu_select, current_settings["sfx_volume"])
+                        run_ranking_menu(display, current_settings)
+
+                    elif selected_option == 2:  # OPTIONS
                         play_sfx(sound_menu_select, current_settings["sfx_volume"])
                         run_options_menu(display, current_settings)
 
-                    elif selected_option == 2:  # QUIT
+                    elif selected_option == 3:  # QUIT
                         play_sfx(sound_menu_back, current_settings["sfx_volume"])
                         pygame.time.delay(150)
                         show_credits(display)
@@ -621,16 +725,16 @@ def main():
 
         pulse = math.sin(frame_count * 0.08) * 2
         title_txt = font_large.render("runner.", True, COLOR_WHITE)
-        display.blit(title_txt, (SCREEN_WIDTH // 2 - title_txt.get_width() // 2, 32 + int(pulse)))
+        display.blit(title_txt, (SCREEN_WIDTH // 2 - title_txt.get_width() // 2, 24 + int(pulse)))
 
         sub_txt = font_small.render("run. fast. win.", True, COLOR_MID)
-        display.blit(sub_txt, (SCREEN_WIDTH // 2 - sub_txt.get_width() // 2, 60))
+        display.blit(sub_txt, (SCREEN_WIDTH // 2 - sub_txt.get_width() // 2, 50))
 
         for idx, opt in enumerate(menu_options):
             color = COLOR_WHITE if idx == selected_option else COLOR_MID
             prefix = "> " if idx == selected_option else "  "
             txt = font.render(f"{prefix}{opt}", True, color)
-            display.blit(txt, (SCREEN_WIDTH // 2 - txt.get_width() // 2, 95 + idx * 20))
+            display.blit(txt, (SCREEN_WIDTH // 2 - txt.get_width() // 2, 80 + idx * 18))
 
         display.blit(scanlines, (0, 0))
         scaled = pygame.transform.scale(display, (WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -642,7 +746,8 @@ def main():
 # --- GAME LOOP ---
 def run_game(settings):
     tiles, spikes, finish_line, spawn_pos, map_width = build_level(LEVEL_MAP)
-    best_time = load_best_time()
+    best_times = load_best_times()
+    best_time = best_times[0] if best_times else None
 
     player = Player(spawn_pos[0], spawn_pos[1])
     start_time = time.time()
@@ -673,6 +778,8 @@ def run_game(settings):
                     start_time = time.time()
                     completed = False
                     is_new_record = False
+                    best_times = load_best_times()
+                    best_time = best_times[0] if best_times else None
 
                 if event.key == pygame.K_ESCAPE:
                     play_sfx(sound_menu_back, settings["sfx_volume"])
@@ -706,9 +813,10 @@ def run_game(settings):
                 play_sfx(sound_win, settings["sfx_volume"])
 
                 if best_time is None or final_time < best_time:
-                    best_time = final_time
-                    save_best_time(best_time)
                     is_new_record = True
+
+                updated_times = save_new_time(final_time)
+                best_time = updated_times[0]
 
         # Câmera
         camera_x = player.rect.centerx - (SCREEN_WIDTH // 2)
@@ -740,7 +848,7 @@ def run_game(settings):
             overlay.fill(COLOR_BG)
             pygame.draw.rect(overlay, COLOR_FG, (0, 0, 180, 75), 1)
 
-            title_str = "NEW BEST TIME!" if is_new_record else "VICTORY!"
+            title_str = "PB!" if is_new_record else "WINNER!"
             title_txt = font_large.render(title_str, True, COLOR_WHITE)
 
             t_str = f"Time: {format_time(final_time)}"
