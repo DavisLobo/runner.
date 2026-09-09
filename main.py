@@ -17,7 +17,9 @@ WINDOW_WIDTH, WINDOW_HEIGHT = SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE
 
 display = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
 window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("RUNNER.")
+game_icon = pygame.image.load("runner.png")
+pygame.display.set_icon(game_icon)
+pygame.display.set_caption("runner.")
 
 clock = pygame.time.Clock()
 FPS = 60
@@ -315,7 +317,7 @@ LEVEL_MAP = [
     "...........................................................F",
     "....................................................PPPPPPPP",
     ".......................................PPPP.PPPP............",
-    "............................PPPP............................",
+    "............................PPPPP...........................",
     "...................PPPP.....................................",
     "...............PP...........................................",
     "........PPPP................................................",
@@ -400,7 +402,7 @@ def show_credits(surface):
     while time.time() - start_t < 2.5:
         surface.fill(COLOR_BG)
         
-        t1 = font_large.render("RUNNER.", True, COLOR_WHITE)
+        t1 = font_large.render("runner.", True, COLOR_WHITE)
         t2 = font.render("by DavisLobo", True, COLOR_FG)
         t3 = font.render("Thanks for Playing!", True, COLOR_MID)
 
