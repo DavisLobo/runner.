@@ -399,7 +399,7 @@ def draw_animated_bg(surface, frame_count):
 
 def show_credits(surface):
     start_t = time.time()
-    while time.time() - start_t < 2.5:
+    while time.time() - start_t < 1.5:
         surface.fill(COLOR_BG)
         
         t1 = font_large.render("runner.", True, COLOR_WHITE)
