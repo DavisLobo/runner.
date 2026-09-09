@@ -317,7 +317,7 @@ LEVEL_MAP = [
     ".......................................PPPP.PPPP............",
     "............................PPPP............................",
     "...................PPPP.....................................",
-    "............................................................",
+    "...............PP...........................................",
     "........PPPP................................................",
     "...................SSSS............SSSSSS...................",
     "X.PP.......SSSS...PPPPPP...PPPP...PPPPPPPPPP................",
@@ -401,7 +401,7 @@ def show_credits(surface):
         surface.fill(COLOR_BG)
         
         t1 = font_large.render("RUNNER.", True, COLOR_WHITE)
-        t2 = font.render("Created by DavisLobo", True, COLOR_FG)
+        t2 = font.render("by DavisLobo", True, COLOR_FG)
         t3 = font.render("Thanks for Playing!", True, COLOR_MID)
 
         surface.blit(t1, (SCREEN_WIDTH // 2 - t1.get_width() // 2, 45))
@@ -618,7 +618,7 @@ def main():
         draw_animated_bg(display, frame_count)
 
         pulse = math.sin(frame_count * 0.08) * 2
-        title_txt = font_large.render("RUNNER.", True, COLOR_WHITE)
+        title_txt = font_large.render("runner.", True, COLOR_WHITE)
         display.blit(title_txt, (SCREEN_WIDTH // 2 - title_txt.get_width() // 2, 32 + int(pulse)))
 
         sub_txt = font_small.render("run. fast. win.", True, COLOR_MID)
