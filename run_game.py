@@ -14,8 +14,8 @@ else:
 
 
 def main():
-    if not VENV_DIR.exists():
-        print("Creating virtual environment...")
+    if not VENV_PYTHON.exists():
+        print(f"Creating virtual environment in: {VENV_DIR}")
         venv.create(VENV_DIR, with_pip=True)
 
     try:
